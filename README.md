@@ -296,6 +296,7 @@ $client->setApiRoot('https://api.linkedin.com/v2/');
 I assume you have to be LinkedIn partner or something like that.
 
 Try to upload image to LinkedIn. See [Rich Media Shares](https://docs.microsoft.com/en-us/linkedin/marketing/integrations/community-management/shares/rich-media-shares)
+- https://learn.microsoft.com/en-us/linkedin/consumer/integrations/self-serve/share-on-linkedin
 (returns "Not enough permissions to access media resource" for me). 
 
 ```php
