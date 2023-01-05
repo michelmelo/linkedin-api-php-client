@@ -3,8 +3,6 @@
  * linkedin-client
  * Client.php
  *
- * PHP Version 5
- *
  * @category Production
  * @package  Default
  * @author   Philipp Tkachev <philipp@zoonman.com>
@@ -577,7 +575,7 @@ class Client
             'headers' => $headers,
         ];
         try {
-            $response = $guzzle->request(Method::POST, 'media/upload', $options);
+            $response = $guzzle->request(Method::POST, 'assets/C5122AQEAatG9rZ7MhQ', $options);
         } catch (RequestException $requestException) {
             throw Exception::fromRequestException($requestException);
         }
