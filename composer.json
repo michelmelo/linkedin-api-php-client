@@ -10,10 +10,10 @@
         "wrapper", "integration", "platform"
     ],
     "homepage": "https://github.com/zoonman/linkedin-api-php-client",
-    "require": {
-        "php": ">=7.2.5",
+     "require": {
+        "php": "^7.4 || ^8.0",
         "ext-curl": "*",
-        "guzzlehttp/guzzle": "^7.0"
+        "guzzlehttp/guzzle": "^7.3.0"
     },
     "license": "MIT",
     "authors": [

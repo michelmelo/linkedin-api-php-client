@@ -3,6 +3,8 @@
  * linkedin-client
  * Client.php
  *
+ * PHP Version 5
+ *
  * @category Production
  * @package  Default
  * @author   Philipp Tkachev <philipp@zoonman.com>
@@ -17,7 +19,6 @@ namespace LinkedIn;
 
 use GuzzleHttp\Client as GuzzleClient;
 use GuzzleHttp\Exception\RequestException;
-use function GuzzleHttp\Psr7\build_query;
 use GuzzleHttp\Psr7\Uri;
 use LinkedIn\Http\Method;
 
@@ -30,9 +31,15 @@ class Client
 {
 
     /**
-     * Grant type
+     * Grant type for authorization code
      */
     const OAUTH2_GRANT_TYPE = 'authorization_code';
+
+    /**
+     * Gran type for refresh token
+     */
+
+    const OAUTH2_REFRESH_TOKEN = 'refresh_token';
 
     /**
      * Response type
@@ -298,6 +305,44 @@ class Client
     }
 
     /**
+     * Retrieve Access Token from Previously stored Refresh Token
+     * If Refresh Token is not provided nor setted, will return null
+
+     *
+     * @param string $refreshToken
+     *
+     * @return \LinkedIn\AccessToken|null
+     * @throws \LinkedIn\Exception
+     */
+    public function renewTokenFromRefreshToken($refreshToken = '')
+    {
+        if (!empty($refreshToken)) {
+            $uri = $this->buildUrl('accessToken', []);
+            $guzzle = new GuzzleClient([
+                'headers' => [
+                    'Content-Type' => 'application/json',
+                    'x-li-format' => 'json',
+                    'Connection' => 'Keep-Alive'
+                ]
+            ]);
+            try {
+                $response = $guzzle->post($uri, ['form_params' => [
+                    'grant_type' => self::OAUTH2_REFRESH_TOKEN,
+                    'refresh_token' => $refreshToken,
+                    'client_id' => $this->getClientId(),
+                    'client_secret' => $this->getClientSecret(),
+                ]]);
+            } catch (RequestException $exception) {
+                throw Exception::fromRequestException($exception);
+            }
+            $this->setAccessToken(
+                AccessToken::fromResponse($response)
+            );
+        }
+        return $this->accessToken;
+    }
+
+    /**
      * Convert API response into Array
      *
      * @param \Psr\Http\Message\ResponseInterface $response
@@ -306,10 +351,18 @@ class Client
      */
     public static function responseToArray($response)
     {
-        return \GuzzleHttp\json_decode(
-            $response->getBody()->getContents(),
-            true
-        );
+        if ($contents = $response->getBody()->getContents()) {
+            return \GuzzleHttp\json_decode(
+                $contents,
+                true
+            );
+        }
+
+        if ($contents = $response->getHeaders()) {
+             return $contents;
+        }
+
+        return [];
     }
 
     /**
@@ -461,7 +514,7 @@ class Client
             $scheme,
             $authority,
             $path,
-            build_query($params),
+            \GuzzleHttp\Psr7\Query::Build($params),
             $fragment
         );
         return $uri;
@@ -480,7 +533,6 @@ class Client
     public function api($endpoint, array $params = [], $method = Method::GET)
     {
         $headers = $this->getApiHeaders();
-        $options = $this->prepareOptions($params, $method);
         Method::isMethodSupported($method);
         if ($this->isUsingTokenParam()) {
             $params['oauth2_access_token'] = $this->accessToken->getToken();
@@ -492,10 +544,11 @@ class Client
             'headers' => $headers,
         ]);
         if (!empty($params) && Method::GET === $method) {
-            $endpoint .= '?' . build_query($params);
+            $endpoint .= '?' . \GuzzleHttp\Psr7\Query::Build($params);
         }
+
         try {
-            $response = $guzzle->request($method, $endpoint, $options);
+            $response = $guzzle->request($method, $endpoint, $params);
         } catch (RequestException $requestException) {
             throw Exception::fromRequestException($requestException);
         }
@@ -517,16 +570,15 @@ class Client
     }
 
     /**
-     * Make API call to LinkedIn using POST method
-     *
-     * @param string $endpoint
-     * @param array  $params
-     *
+     * @param $endpoint
+     * @param array $params
+     * @param bool $rawData
      * @return array
-     * @throws \LinkedIn\Exception
+     * @throws Exception
      */
-    public function post($endpoint, array $params = [])
+    public function post($endpoint, array $params = [], bool $rawData = false)
     {
+        $params = $this->prepareOptions($params, $rawData);
         return $this->api($endpoint, $params, Method::POST);
     }
 
@@ -553,7 +605,10 @@ class Client
     {
         $headers = $this->getApiHeaders();
         unset($headers['Content-Type']);
-        if (!$this->isUsingTokenParam()) {
+        //$headers = [];
+        if ($this->isUsingTokenParam()) {
+            //
+        } else {
             $headers['Authorization'] = 'Bearer ' . $this->accessToken->getToken();
         }
         $guzzle = new GuzzleClient([
@@ -575,7 +630,7 @@ class Client
             'headers' => $headers,
         ];
         try {
-            $response = $guzzle->request(Method::POST, 'assets/C5122AQEAatG9rZ7MhQ', $options);
+            $response = $guzzle->request(Method::POST, 'media/upload', $options);
         } catch (RequestException $requestException) {
             throw Exception::fromRequestException($requestException);
         }
@@ -584,15 +639,17 @@ class Client
 
     /**
      * @param array $params
-     * @param string $method
-     * @return mixed
+     * @param bool $rawData
+     * @return array
      */
-    protected function prepareOptions(array $params, $method)
+    protected function prepareOptions(array $params, bool $rawData = false)
     {
         $options = [];
-        if ($method === Method::POST) {
-            $options['body'] = \GuzzleHttp\json_encode($params);
+        if ($rawData) {
+            $options['body'] = \GuzzleHttp\Psr7\Query::Build($params, false);
+            return $options;
         }
+        $options['body'] = \GuzzleHttp\json_encode($params);
         return $options;
     }
 }
